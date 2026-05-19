@@ -1,0 +1,6 @@
+{
+  "name": "AI-Powered LMS",
+  "description": "A modern Learning Management System with AI doubt assistance powered by Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+
+    // Users Collection
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'createdAt'])
+        && data.keys().size() == 3
+        && data.name is string && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && data.createdAt == request.time;
+    }
+    
+    function isValidUserUpdate(data) {
+        return data.keys().hasAll(['name', 'email', 'createdAt'])
+        && data.keys().size() == 3
+        && data.name is string && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && data.createdAt == existing().createdAt;
+    }
+
+    match /users/{userId} {
+      // PII Blanket Guard: Strictly limited to owner
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidUserUpdate(incoming());
+    }
+
+    // Discussions Collection
+    function isValidTag(tag) { return tag is string && tag.size() <= 30; }
+    function hasValidTags(tags) {
+      return tags is list 
+        && tags.size() <= 10 
+        && (tags.size() == 0 || isValidTag(tags[0])); 
+    }
+
+    function isValidDiscussion(data) {
+      return data.keys().hasAll(['title', 'tags', 'authorId', 'authorName', 'likes', 'dislikes', 'createdAt'])
+        && (data.keys().size() == 7 || (data.keys().size() == 8 && data.keys().hasAll(['updatedAt'])))
+        && data.title is string && data.title.size() <= 300
+        && hasValidTags(data.tags)
+        && data.authorId == request.auth.uid
+        && data.authorName is string && data.authorName.size() <= 100
+        && data.likes is number && data.likes == 0
+        && data.dislikes is number && data.dislikes == 0
+        && data.createdAt == request.time;
+    }
+
+    match /discussions/{discussionId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(discussionId) && isValidDiscussion(incoming());
+      allow update: if isSignedIn() && (
+        (incoming().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'tags', 'updatedAt']) && incoming().updatedAt == request.time) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'dislikes']))
+      );
+      allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && isValidId(commentId)
+          && incoming().keys().hasAll(['text', 'authorId', 'authorName', 'createdAt'])
+          && incoming().keys().size() == 4
+          && incoming().text is string && incoming().text.size() <= 2000
+          && incoming().authorId == request.auth.uid
+          && incoming().authorName is string && incoming().authorName.size() <= 100
+          && incoming().createdAt == request.time;
+        allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
+      }
+    }
+
+    // Books Collection
+    function isValidBook(data) {
+      return data.keys().hasAll(['title', 'description', 'authorId', 'authorName', 'createdAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 5000
+        && data.authorId == request.auth.uid
+        && data.authorName is string && data.authorName.size() <= 100
+        && data.createdAt == request.time;
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(bookId) && isValidBook(incoming());
+      allow update: if isSignedIn() && existing().authorId == request.auth.uid 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'updatedAt'])
+        && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
+    }
+
+    // Chats Collection
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && (request.auth.uid in existing().participants);
+      allow create: if isSignedIn() && isValidId(chatId)
+        && incoming().keys().hasAll(['participants', 'updatedAt', 'lastMessage'])
+        && incoming().participants is list 
+        && incoming().participants.size() == 2
+        && request.auth.uid in incoming().participants
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && (request.auth.uid in existing().participants)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'updatedAt'])
+        && incoming().updatedAt == request.time;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() 
+          && exists(/databases/$(database)/documents/chats/$(chatId)) 
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isSignedIn() && isValidId(messageId)
+          && exists(/databases/$(database)/documents/chats/$(chatId)) 
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && incoming().keys().hasAll(['text', 'senderId', 'createdAt'])
+          && incoming().keys().size() == 3
+          && incoming().text is string && incoming().text.size() <= 2000
+          && incoming().senderId == request.auth.uid
+          && incoming().createdAt == request.time;
+      }
+    }
+  }
+}
