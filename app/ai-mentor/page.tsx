@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, Loader2, BookOpen, BrainCircuit, GraduationCap } from "lucide-react";
+import { Send, Bot, User, Sparkles, Loader2, BookOpen, BrainCircuit, GraduationCap, Settings, Key, X } from "lucide-react";
 
 interface Message {
   role: 'user' | 'assistant';

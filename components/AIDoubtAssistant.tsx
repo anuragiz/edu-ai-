@@ -57,14 +57,17 @@ export function AIDoubtAssistant({ context }: AIDoubtAssistantProps) {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to get response');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to get response');
+      }
       
       const data = await response.json();
       
       setMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I had trouble processing that request. Please try again." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `Sorry, I had trouble processing that request. Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
     }

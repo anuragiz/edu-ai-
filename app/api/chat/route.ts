@@ -1,25 +1,19 @@
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60; // Allow longer generation if needed
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.warn("GEMINI_API_KEY is not set in the environment.");
-    }
-
-    const ai = new GoogleGenAI({ 
-      apiKey: apiKey || "", // Fallback to empty string to prevent ADC errors if undefined
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
-    });
-
     const { messages, context } = await req.json();
+
+    // Use the hardcoded key as requested
+    const apiKey = "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";
+
+    const openai = new OpenAI({ 
+      apiKey: apiKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+    });
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "Invalid messages format" }, { status: 400 });
@@ -37,34 +31,24 @@ Module Type: ${context?.moduleType || 'Unknown'}
 Content summary: ${context?.contentSummary || 'General learning module'}
 `;
 
-    // Extract the latest message
-    const latestMessage = messages[messages.length - 1];
-    
-    // Format previous history for context if needed, but for simplicity we'll pass the latest message
-    // A better implementation would format the full conversation history.
-    let fullPrompt = "";
-    
-    if (messages.length > 1) {
-       fullPrompt += "Previous conversation context:\n";
-       messages.slice(0, -1).forEach((msg: any) => {
-         fullPrompt += `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}\n`;
-       });
-       fullPrompt += "\n";
-    }
-    
-    fullPrompt += `Student: ${latestMessage.content}`;
+    // Map messages to OpenAI format
+    const formattedMessages = [
+      { role: "system" as const, content: systemInstruction },
+      ...messages.map((msg: any) => ({
+        role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant" | "system",
+        content: msg.content
+      }))
+    ];
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: fullPrompt,
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.7,
-      }
+    const response = await openai.chat.completions.create({
+      model: "meta/llama-3.1-70b-instruct",
+      messages: formattedMessages,
+      temperature: 0.7,
+      max_tokens: 1024,
     });
 
     return NextResponse.json({ 
-      text: response.text 
+      text: response.choices[0]?.message?.content || ""
     });
   } catch (error) {
     console.error("Error in chat API:", error);
