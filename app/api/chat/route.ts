@@ -3,17 +3,22 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60; // Allow longer generation if needed
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
-  }
-});
-
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is not set in the environment.");
+    }
+
+    const ai = new GoogleGenAI({ 
+      apiKey: apiKey || "", // Fallback to empty string to prevent ADC errors if undefined
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
     const { messages, context } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
