@@ -50,7 +50,7 @@ Content summary: ${context?.contentSummary || 'General learning module'}
     fullPrompt += `Student: ${latestMessage.content}`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: fullPrompt,
       config: {
         systemInstruction: systemInstruction,
@@ -64,7 +64,7 @@ Content summary: ${context?.contentSummary || 'General learning module'}
   } catch (error) {
     console.error("Error in chat API:", error);
     return NextResponse.json(
-      { error: "Failed to generate response" },
+      { error: "Failed to generate response: " + (error as any).message },
       { status: 500 }
     );
   }

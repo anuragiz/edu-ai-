@@ -55,13 +55,16 @@ export default function AIMentorPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to get response');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to get response');
+      }
       const data = await response.json();
       
       setMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I'm having a little trouble connecting right now. Let's try again in a moment." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `Sorry, I'm having a little trouble connecting right now. Let's try again in a moment. Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
     }
