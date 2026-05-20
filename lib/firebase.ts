@@ -1,10 +1,18 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+const firebaseConfig = {
+  apiKey: "AIzaSyCRdagFxF_1hdIE0q2_nxb48mOoUSsLLnw",
+  authDomain: "edu-ai-66339.firebaseapp.com",
+  projectId: "edu-ai-66339",
+  storageBucket: "edu-ai-66339.firebasestorage.app",
+  messagingSenderId: "790756531609",
+  appId: "1:790756531609:web:c34965af9f11e733024708",
+  measurementId: "G-0EQLNN3XQ5"
+};
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // CRITICAL
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
